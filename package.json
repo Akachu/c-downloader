@@ -1,0 +1,19 @@
+{
+  "name": "downloader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsc && node ./build/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^17.0.39",
+    "@types/nopt": "^3.0.29"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "nopt": "^5.0.0"
+  }
+}
