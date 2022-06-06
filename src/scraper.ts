@@ -1,4 +1,4 @@
-import { hashbasedPool } from "./fetch";
+import { fetchAll } from "./fetch";
 import { Data, DataListAndUrl } from "./interface";
 import { getParsedDataFromURL } from "./data";
 
@@ -22,7 +22,7 @@ export async function getAllFileUrlList({ baseUrl, maxFolderDepth, maxPoolSize, 
 
     while (folderDepth < maxFolderDepth) {
 
-        const { successResultList } = await hashbasedPool<Data, DataListAndUrl>({
+        const { successResultList } = await fetchAll<Data, DataListAndUrl>({
             itemList: folderList,
             maxPoolSize,
             maxRetryCount,

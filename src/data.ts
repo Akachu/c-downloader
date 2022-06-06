@@ -4,7 +4,6 @@ import { calculateSize } from "./util";
 
 const RAW_DATA_REGEXP = /(?<=rawData \= \").*(?=\")/;
 
-
 function decodeAndParseRawData(rawData: string): RawData[] {
     const decodedData = Buffer.from(rawData, "base64").toString("utf-8");
 

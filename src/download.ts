@@ -2,7 +2,7 @@ import { createWriteStream, promises as fs } from "fs";
 import { promisify } from "util";
 import * as stream from "stream";
 import axios from "axios";
-import { hashbasedPool } from "./fetch";
+import { fetchAll } from "./fetch";
 import { Data } from "./interface";
 import { formatSize, formatTime } from "./util";
 
@@ -69,7 +69,7 @@ export async function downloadAllFile({ basePath, fileDataList, maxPoolSize, del
 
     const totalFileSize = fileDataList.reduce((totalSize, file) => totalSize + file.size, 0);
 
-    const { failedIdList } = await hashbasedPool({
+    const { failedIdList } = await fetchAll({
         maxPoolSize,
         itemList: fileDataList,
         runFunction: item => downloadFile(basePath, item),
@@ -90,7 +90,7 @@ export async function downloadAllFile({ basePath, fileDataList, maxPoolSize, del
             process.stdout.clearLine(1);
             process.stdout.write(`downloading files ${fileLog}, ${sizeLog}...\r`);
         },
-        // delay,
+        delay,
         maxRetryCount,
     });
 

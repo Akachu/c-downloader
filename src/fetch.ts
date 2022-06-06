@@ -8,15 +8,16 @@ interface LogData {
 
 type Logger = (logData: LogData) => void
 
-interface hashbasedPoolProps<ItemType, ResponseType> {
+interface fetchAllProps<ItemType, ResponseType> {
     itemList: ItemType[],
-    maxPoolSize: number,
-    maxRetryCount: number,
     runFunction: (item: ItemType) => Promise<ResponseType>,
     logger: Logger,
+    maxRetryCount?: number,
+    maxPoolSize?: number,
+    delay?: number,
 }
 
-export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunction, maxPoolSize, maxRetryCount, logger }: hashbasedPoolProps<ItemType, ResponseType>) {
+export async function fetchAll<ItemType, ResponseType>({ itemList, runFunction, logger, maxPoolSize = 15, maxRetryCount = 5, delay = 150 }: fetchAllProps<ItemType, ResponseType>) {
     type RequestItem = {
         id: number,
         value: ResponseType,
@@ -29,11 +30,10 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
     const requestHash: { [key: number]: Promise<RequestItem> } = {};
 
     const successResultList: ResponseType[] = [];
-
     const successIdList: number[] = [];
-
     const failedIdList: number[] = [];
-    let retryingFailedIdList: number[] = [];
+
+    let retriedFailedIdList: number[] = [];
 
     async function getRequest(id: number) {
         return new Promise<RequestItem>(async resolve => {
@@ -57,7 +57,7 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
 
             if (result.rejected) {
                 if (isRetrying) {
-                    retryingFailedIdList.push(result.id);
+                    retriedFailedIdList.push(result.id);
                 } else {
 
                     failedIdList.push(result.id);
@@ -74,7 +74,6 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
     }
 
     let initialized = false;
-
     let index = 0;
 
     while (successResultList.length + failedIdList.length < itemList.length) {
@@ -87,7 +86,7 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
                 requestHash[id] = getRequest(id);
 
                 if (!initialized) {
-                    await sleep(150);
+                    await sleep(delay);
                 }
             }
 
@@ -103,33 +102,33 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
         });
     }
 
-    retryingFailedIdList = failedIdList;
+    retriedFailedIdList = failedIdList;
 
     let retryCount = 0;
-    let retriedCount = 0;
-    let retryingCount = retryingFailedIdList.length;
+    let retryCountInCycle = 0;
+    let totalRetryCountInCycle = retriedFailedIdList.length;
 
-    while ((retryCount < maxRetryCount && retryingFailedIdList.length > 0)) {
+    while ((retryCount < maxRetryCount && retriedFailedIdList.length > 0)) {
         await getResultFromPool(true);
 
         const leftPoolSpace = getLeftPoolSize();
 
-        let newPoolSize = 0;
+        let usedPoolCount = 0;
 
         if (leftPoolSpace > 0) {
-            for (let id of retryingFailedIdList) {
-                if (newPoolSize >= leftPoolSpace) {
+            for (let id of retriedFailedIdList) {
+                if (usedPoolCount >= leftPoolSpace) {
                     continue;
                 }
 
                 requestHash[id] = getRequest(id);
 
-                retryingFailedIdList = retryingFailedIdList.filter(failedId => failedId !== id);
+                retriedFailedIdList = retriedFailedIdList.filter(failedId => failedId !== id);
 
-                newPoolSize++;
-                retriedCount++;
+                usedPoolCount++;
+                retryCountInCycle++;
 
-                await sleep(150);
+                await sleep(delay);
             }
         }
 
@@ -139,10 +138,10 @@ export async function hashbasedPool<ItemType, ResponseType>({ itemList, runFunct
             failedIdList,
         });
 
-        if (retriedCount >= retryingCount) {
+        if (retryCountInCycle >= totalRetryCountInCycle) {
             retryCount++;
-            retriedCount = 0;
-            retryingCount = retryingFailedIdList.length;
+            retryCountInCycle = 0;
+            totalRetryCountInCycle = retriedFailedIdList.length;
         }
     }
 
